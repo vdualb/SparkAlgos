@@ -104,8 +104,12 @@ kernel void InvLMul(
     unsigned int row_at_window_start = 0;
     real current_vector_entry = res[0];
     unsigned int loop_end = (nnz / get_local_size(0) + 1) * get_local_size(0);
-    unsigned int next_row = aptr[1];
   
+    unsigned k = 0;
+    unsigned a0 = aptr[0];
+    unsigned a1 = aptr[1];
+    unsigned ia = a0;
+    
     for (unsigned int i = get_local_id(0); i < loop_end; i += get_local_size(0))
     {
         //load into shared memory (coalesced access):
@@ -122,33 +126,45 @@ kernel void InvLMul(
         //now a single thread does the remaining work in shared memory:
         if (get_local_id(0) == 0)
         {
-            // traverse through all the loaded data:
-            for (unsigned int k=0; k<get_local_size(0); ++k)
+            // printf("2. i = %d", i);
+            k = 0;
+            
+            while (1)
             {
-                if (current_row < n && i+k == next_row) //current row is finished. Write back result
-                {
+                // iterate over rows, while k is inside the window
+                for (; ia < a1 && k < get_local_size(0); ia++, k++) {
+                    
+                    if (jptr_buffer[k] < current_row) {
+                        if (jptr_buffer[k] < row_at_window_start) //use buffered data
+                        {
+                            // printf("3. %f -= %f * %f, k = %d\n", current_vector_entry, element_buffer[k], vector_buffer[k], k);
+                            current_vector_entry -= element_buffer[k] * vector_buffer[k];
+                        }
+                        else if (jptr_buffer[k] < current_row) //use recently computed results
+                        {
+                            // printf("4. %f -= %f * %f, k = %d\n", current_vector_entry, element_buffer[k], res[jptr_buffer[k]], k);
+                            current_vector_entry -= element_buffer[k] * res[jptr_buffer[k]];
+                        }
+                    }
+                }
+                
+                if (ia == a1) {
+                    // printf("5. %f = %f / %f, curr_row = %d\n", res[current_row], current_vector_entry, di[current_row], current_row);
                     res[current_row] = current_vector_entry / di[current_row];
-                    ++current_row;
-                    if (current_row < n) //load next row's data
-                    {
-                        next_row = aptr[current_row+1];
+                    if (current_row < n - 1) {
+                        current_row++;
+                        
                         current_vector_entry = res[current_row];
+                        a0 = aptr[current_row];
+                        a1 = aptr[current_row + 1];
+                    } else {
+                        break;
                     }
+                } else {
+                    break;
                 }
-        
-                if (current_row < n && jptr_buffer[k] < current_row) //substitute
-                {
-                    if (jptr_buffer[k] < row_at_window_start) //use recently computed results
-                    {
-                        current_vector_entry -= element_buffer[k] * vector_buffer[k];
-                    }
-                    else if (jptr_buffer[k] < current_row) //use buffered data
-                    {
-                        current_vector_entry -= element_buffer[k] * res[jptr_buffer[k]];
-                    }
-                }
-            } // for k
-    
+            } // while (1)
+
             row_at_window_start = current_row;
         } // if (get_local_id(0) == 0)
     
@@ -178,7 +194,12 @@ kernel void InvUMul(
     unsigned int loop_end = ( (nnz - 1) / get_local_size(0)) * get_local_size(0);
     unsigned int next_row = aptr[n-1];
 
-    if (get_local_id(0) == 0) printf("nnz = %d", nnz);
+    int a0 = aptr[n]-1;
+    int a1 = aptr[n-1];
+    int k = (nnz-1) % get_local_size(0);
+    int ia = a0;
+    
+    // if (get_local_id(0) == 0) printf("nnz = %d", nnz);
     
     unsigned int i = loop_end + get_local_id(0);
     while (1)
@@ -197,48 +218,54 @@ kernel void InvUMul(
         //now a single thread does the remaining work in shared memory:
         if (get_local_id(0) == 0)
         {
-            unsigned a0 = aptr[current_row];
-            unsigned a1 = aptr[current_row + 1];
-            for (unsigned int i2 = a0; i2 < a1; i2++) {
-                
+            if (i != loop_end)
+            {
+                k = get_local_size(0) - 1;
             }
             
-            // traverse through all the loaded data from back to front:
-            for (unsigned int k2=0; k2<get_local_size(0); ++k2)
+            while (1)
             {
-                unsigned int k = (get_local_size(0) - k2) - 1;
-        
-                if (i+k >= nnz)
-                {
-                    continue;
+                // iterate over rows, while k is inside the window
+                while (ia >= a1 && k >= 0) {
+                    if (jptr_buffer[k] > current_row) {
+                        if (jptr_buffer[k] > row_at_window_start) //use buffered data
+                        {
+                            // printf("3. %f -= %f * %f, k = %d\n", current_vector_entry, element_buffer[k], vector_buffer[k], k);
+                            current_vector_entry -= element_buffer[k] * vector_buffer[k];
+                        }
+                        else if (jptr_buffer[k] > current_row) //use recently computed results
+                        {
+                            // printf("4. %f -= %f * %f, k = %d\n", current_vector_entry, element_buffer[k], res[jptr_buffer[k]], k);
+                            current_vector_entry -= element_buffer[k] * res[jptr_buffer[k]];
+                        } else {
+                            // printf("Unexpected");
+                        }
+                    } else {
+                        // printf("Skip, ia = %d, k = %d", ia, k);
+                    }
+                    ia--;
+                    k--;
                 }
                 
-                printf("i = %d", i);
-        
-                if (jptr_buffer[k] > row_at_window_start) //use recently computed results
-                {
-                    printf("3. %f -= %f * %f, k = %d\n", current_vector_entry, element_buffer[k], vector_buffer[k], k);
-                    current_vector_entry -= element_buffer[k] * vector_buffer[k];
-                }
-                else if (jptr_buffer[k] > current_row) //use buffered data
-                {
-                    printf("4. %f -= %f * %f, k = %d\n", current_vector_entry, element_buffer[k], res[jptr_buffer[k]], k);
-                    current_vector_entry -= element_buffer[k] * res[jptr_buffer[k]];
-                }
-        
-                if (i+k < next_row) //current row is finished. Write back result
-                {
-                    printf("5. %f = %f / %f, curr_row = %d\n", res[current_row], current_vector_entry, di[current_row], current_row);
+                if (ia < a1) {
+                    // printf("5. %f = %f / %f, curr_row = %d\n", res[current_row], current_vector_entry, di[current_row], current_row);
                     res[current_row] = current_vector_entry / di[current_row];
-                    if (current_row > 0) //load next row's data
-                    {
-                        --current_row;
-                        next_row = aptr[current_row];
+                    if (current_row >= 1) {
+                        current_row--;
+                        
                         current_vector_entry = res[current_row];
+                        a0 = aptr[current_row + 1]-1;
+                        a1 = aptr[current_row];
+                        ia = a0;
+                    } else {
+                        break;
                     }
+                } else {
+                    // printf("Page end, ia = %d, k = %d", ia, k);
+                    break;
                 }
-            } // for k
-        
+            } // while (1)
+            
             row_at_window_start = current_row;
         } // if (get_local_id(0) == 0)
     
