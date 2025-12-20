@@ -12,7 +12,20 @@ public class Blas
 
     public static Blas GetInstance()
     {
-        if (instance == null) instance = new Blas();
+        if (instance == null)
+        {
+            instance = new Blas();
+            Core.OnDeinit += () =>
+            {
+                instance._dot1.Dispose();
+                instance._dot2.Dispose();
+                instance._scale.Dispose();
+                instance._axpy.Dispose();
+                instance._solvers.Dispose();
+                
+                instance = null;
+            };
+        }
 
         return instance;
     }

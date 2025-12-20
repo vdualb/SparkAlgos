@@ -1,5 +1,7 @@
 #define real double
 
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+
 // original: https://github.com/CNugteren/CLBlast/blob/bd96941ac0633e8e7d09fd2475e0279be370b1e1/src/kernels/level1/xdot.opencl
 
 #define WGS1 32

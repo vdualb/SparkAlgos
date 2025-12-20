@@ -7,6 +7,8 @@ namespace SparkAlgos.SlaeSolver;
 
 public class BicgStabOCL : IDisposable, ISlaeSolver
 {
+    private bool disposedValue;
+    
     int _maxIter;
     Real _eps;
 
@@ -25,7 +27,6 @@ public class BicgStabOCL : IDisposable, ISlaeSolver
     ComputeBuffer<Real> t;
     ComputeBuffer<Real> dotpart;
     ComputeBuffer<Real> dotres;
-    private bool disposedValue;
 
     public BicgStabOCL(
         int maxIter,
@@ -65,7 +66,7 @@ public class BicgStabOCL : IDisposable, ISlaeSolver
     }
 
     static ComputeProgram? solvers;
-    public (Real discrep, int iter) Solve(Types.Matrix matrix, Span<Real> b, Span<Real> x)
+    public (Real discrep, int iter) Solve(Types.IMatrix matrix, Span<Real> b, Span<Real> x)
     {
         AllocateTemps(x.Length);
 
@@ -78,7 +79,12 @@ public class BicgStabOCL : IDisposable, ISlaeSolver
         // BiCGSTAB
         if (solvers == null)
         {
-            solvers = new ComputeProgram("SlaeSolver/Solvers.cl");
+            solvers = new("SlaeSolver/Solvers.cl");
+            Core.OnDeinit += () =>
+            {
+                solvers.Dispose();
+                solvers = null;
+            };
         }
 
         var kernP = solvers.GetKernel(
@@ -234,37 +240,33 @@ public class BicgStabOCL : IDisposable, ISlaeSolver
     {
         if (!disposedValue)
         {
-            if (disposing)
-            {
-                // TODO: освободить управляемое состояние (управляемые объекты)
-            }
-
-            // TODO: надо вернуть обратно
-            // r.Dispose();
-            // r_hat.Dispose();
-            // p.Dispose();
-            // nu.Dispose();
-            // h.Dispose();
-            // s.Dispose();
-            // t.Dispose();
-            // dotpart.Dispose();
-            // dotres.Dispose();
-            // TODO: освободить неуправляемые ресурсы (неуправляемые объекты) и переопределить метод завершения
-            // TODO: установить значение NULL для больших полей
+            r.Dispose();
+            di_inv.Dispose();
+            y.Dispose();
+            z.Dispose();
+            ks.Dispose();
+            kt.Dispose();
+            r_hat.Dispose();
+            p.Dispose();
+            nu.Dispose();
+            h.Dispose();
+            s.Dispose();
+            t.Dispose();
+            dotpart.Dispose();
+            dotres.Dispose();
+            // solvers?.Dispose();
+            // solvers = null;
             disposedValue = true;
         }
     }
 
-    // // TODO: переопределить метод завершения, только если "Dispose(bool disposing)" содержит код для освобождения неуправляемых ресурсов
     ~BicgStabOCL()
     {
-        // Не изменяйте этот код. Разместите код очистки в методе "Dispose(bool disposing)".
         Dispose(disposing: false);
     }
 
     public void Dispose()
     {
-        // Не изменяйте этот код. Разместите код очистки в методе "Dispose(bool disposing)".
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }

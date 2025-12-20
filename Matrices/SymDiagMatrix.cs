@@ -6,7 +6,7 @@ using OCLHelper;
 namespace SparkAlgos.Matrices;
 using Types;
 
-public ref struct SymDiagMatrixRef : MatrixContainer
+public ref struct SymDiagMatrixRef : IMatrixContainer
 {
     public required Span<Real> d3;
     public required Span<Real> d2;
@@ -20,7 +20,7 @@ public ref struct SymDiagMatrixRef : MatrixContainer
 }
 
 
-public class SymDiagMatrix : Matrix
+public class SymDiagMatrix : IMatrix
 {
     // diagonal
     public ComputeBuffer<Real> d3;
@@ -38,7 +38,7 @@ public class SymDiagMatrix : Matrix
     public int Gap;
 
     public int Size => Di.Length;
-    ComputeBuffer<Real> Matrix.Di => Di;
+    ComputeBuffer<Real> IMatrix.Di => Di;
 
     static SparkCL.Kernel? kernMul;
 

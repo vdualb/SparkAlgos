@@ -1,6 +1,8 @@
 #define real double
 #define real4 float4
 
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+
 kernel void dot_kernel9999
 (
     global const real4 *v1,

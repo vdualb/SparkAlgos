@@ -6,7 +6,7 @@ using OCLHelper;
 namespace SparkAlgos.Matrices;
 using Types;
 
-public ref struct DiagMatrixRef : MatrixContainer
+public ref struct DiagMatrixRef : IMatrixContainer
 {
     // Left diagonal
     public required Span<Real> Ld3;
@@ -31,7 +31,7 @@ public ref struct DiagMatrixRef : MatrixContainer
     public int Size => Di.Length;
 }
 
-public class DiagMatrix : Matrix
+public class DiagMatrix : IHalves
 {
     // Left diagonal
     public ComputeBuffer<Real> Ld3;
@@ -54,9 +54,13 @@ public class DiagMatrix : Matrix
     public int Gap;
 
     public int Size => Di.Length;
-    ComputeBuffer<Real> Matrix.Di => Di;
+    ComputeBuffer<Real> IMatrix.Di => Di;
 
     static SparkCL.Kernel? kernMul;
+    static SparkCL.Kernel? kernLMul;
+    static SparkCL.Kernel? kernUMul;
+    static SparkCL.Kernel? kernInvLMul;
+    static SparkCL.Kernel? kernInvUMul;
 
     public DiagMatrix(DiagMatrixRef matrix)
     {
@@ -77,6 +81,7 @@ public class DiagMatrix : Matrix
     {
         if (kernMul == null)
         {
+            
             var support = new ComputeProgram("Matrices/DiagMatrix.cl");
             var localWork = new NDRange(Core.Prefered1D);
 
@@ -85,6 +90,11 @@ public class DiagMatrix : Matrix
                 new NDRange((nuint)vec.Length).PadTo(Core.Prefered1D),
                 localWork
             );
+            Core.OnDeinit += () =>
+            {
+                kernMul.Dispose();
+                kernMul = null;
+            };
         }
             kernMul.GlobalWork = new NDRange((nuint)vec.Length).PadTo(Core.Prefered1D);
             kernMul.SetArg(0, Ld3);
@@ -103,5 +113,147 @@ public class DiagMatrix : Matrix
         kernMul.SetArg(12, res);
 
         kernMul.Execute();
+    }
+    
+    public void LMul(ComputeBuffer<double> vec, ComputeBuffer<double> res)
+    {
+        if (kernLMul == null)
+        {
+            var support = new ComputeProgram("Matrices/DiagMatrix.cl");
+            var localWork = new NDRange(Core.Prefered1D);
+
+            kernLMul = support.GetKernel(
+                "LMul",
+                new NDRange((nuint)vec.Length).PadTo(Core.Prefered1D),
+                localWork
+            );
+            Core.OnDeinit += () =>
+            {
+                kernLMul.Dispose();
+                kernLMul = null;
+            };
+        }
+        
+        kernLMul.GlobalWork = new NDRange((nuint)vec.Length).PadTo(Core.Prefered1D);
+        kernLMul.SetArg(0, Ld3);
+        kernLMul.SetArg(1, Ld2);
+        kernLMul.SetArg(2, Ld1);
+        kernLMul.SetArg(3, Ld0);
+        
+        kernLMul.SetArg(4, Di);
+        
+        kernLMul.SetArg(5, vec.Length);
+        kernLMul.SetArg(6, Gap);
+
+        kernLMul.SetArg(7, vec);
+        kernLMul.SetArg(8, res);
+    
+        kernLMul.Execute();
+    }
+
+    public void UMul(ComputeBuffer<double> vec, ComputeBuffer<double> res)
+    {
+        if (kernUMul == null)
+        {
+            var support = new ComputeProgram("Matrices/DiagMatrix.cl");
+            var localWork = new NDRange(Core.Prefered1D);
+
+            kernUMul = support.GetKernel(
+                "UMul",
+                new NDRange((nuint)vec.Length).PadTo(Core.Prefered1D),
+                localWork
+            );
+            Core.OnDeinit += () =>
+            {
+                kernUMul.Dispose();
+                kernUMul = null;
+            };
+        }
+        
+        kernUMul.GlobalWork = new NDRange((nuint)vec.Length).PadTo(Core.Prefered1D);
+        kernUMul.SetArg(0, Rd3);
+        kernUMul.SetArg(1, Rd2);
+        kernUMul.SetArg(2, Rd1);
+        kernUMul.SetArg(3, Rd0);
+        
+        kernUMul.SetArg(4, Di);
+        
+        kernUMul.SetArg(5, vec.Length);
+        kernUMul.SetArg(6, Gap);
+
+        kernUMul.SetArg(7, vec);
+        kernUMul.SetArg(8, res);
+    
+        kernUMul.Execute();
+    }
+
+    public void InvLMul(ComputeBuffer<double> inOut)
+    {
+        if (kernInvLMul == null)
+        {
+            var support = new ComputeProgram("Matrices/DiagMatrix.cl");
+            var globalWork = new NDRange(4);
+            var localWork = new NDRange(4);
+
+            kernInvLMul = support.GetKernel(
+                "InvLMul",
+                globalWork,
+                localWork
+            );
+            Core.OnDeinit += () =>
+            {
+                kernInvLMul.Dispose();
+                kernInvLMul = null;
+            };
+        }
+        
+        kernInvLMul.SetArg(0, Ld3);
+        kernInvLMul.SetArg(1, Ld2);
+        kernInvLMul.SetArg(2, Ld1);
+        kernInvLMul.SetArg(3, Ld0);
+        
+        kernInvLMul.SetArg(4, Di);
+        
+        kernInvLMul.SetArg(5, inOut.Length);
+        kernInvLMul.SetArg(6, Gap);
+
+        kernInvLMul.SetArg(7, inOut);
+    
+        kernInvLMul.Execute();
+    }
+
+    public void InvUMul(ComputeBuffer<double> inOut)
+    {
+        if (kernInvUMul == null)
+        {
+            var support = new ComputeProgram("Matrices/DiagMatrix.cl");
+            var globalWork = new NDRange(4);
+            var localWork = new NDRange(4);
+
+            kernInvUMul = support.GetKernel(
+                "InvUMul",
+                globalWork,
+                localWork
+            );
+            Core.OnDeinit += () =>
+            {
+                kernInvUMul.Dispose();
+                kernInvUMul = null;
+            };
+        }
+        
+        kernInvUMul.SetArg(0, Rd3);
+        kernInvUMul.SetArg(1, Rd2);
+        kernInvUMul.SetArg(2, Rd1);
+        kernInvUMul.SetArg(3, Rd0);
+        
+        kernInvUMul.SetArg(4, Di);
+        
+        kernInvUMul.SetArg(5, inOut.Length);
+        kernInvUMul.SetArg(6, Gap);
+
+        kernInvUMul.SetArg(7, inOut);
+    
+        kernInvUMul.Execute();
     }
 }
