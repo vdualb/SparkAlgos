@@ -1,9 +1,3 @@
-#if USE_DOUBLE
-using Real = double;
-#else
-using Real = float;
-#endif
-
 namespace SparkAlgos.SlaeSolver;
 
 public interface ISlaeSolver : IDisposable
