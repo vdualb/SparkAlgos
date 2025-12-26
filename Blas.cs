@@ -1,5 +1,8 @@
+#if USE_DOUBLE
 using Real = double;
-
+#else
+using Real = float;
+#endif
 
 using SparkCL;
 using OCLHelper;
@@ -37,7 +40,7 @@ public class Blas
     ComputeProgram _solvers;
 
     // probably not the most elegant solution, but it
-    // avoid hidden allocation and passing scratch buffers
+    // avoids hidden allocation and passing scratch buffers
     // via paramenters
     // number means the minimum required length
     public ComputeBuffer<Real>? Scratch64 { get; set; }
@@ -47,7 +50,12 @@ public class Blas
     {
         var localWork = new OCLHelper.NDRange(Core.Prefered1D);
 
-        _solvers = new SparkCL.ComputeProgram("Blas.cl");
+#if USE_DOUBLE
+        _solvers = ComputeProgram.FromFilename("Blas.cl", "#define USE_DOUBLE");
+#else
+        _solvers = ComputeProgram.FromFilename("Blas.cl");
+#endif
+
         _dot1 = _solvers.GetKernel(
             "Xdot",
             globalWork: new(32*32*2),
@@ -72,7 +80,7 @@ public class Blas
     }
 
     /// requires scratch64 and scratch1
-    public Real Dot(SparkCL.ComputeBuffer<Real> x, SparkCL.ComputeBuffer<Real> y)
+    public Real Dot(ComputeBuffer<Real> x, ComputeBuffer<Real> y)
     {
         _dot1.SetArg(0, x.Length);
         _dot1.SetArg(1, x);
@@ -90,7 +98,7 @@ public class Blas
         return flt_span[0];
     }
 
-    public void Scale(Real a, SparkCL.ComputeBuffer<Real> y)
+    public void Scale(Real a, ComputeBuffer<Real> y)
     {
         _scale.GlobalWork = new NDRange((nuint)y.Length).PadTo(Core.Prefered1D);
         _scale.SetArg(0, a);
@@ -101,7 +109,7 @@ public class Blas
     }
 
     /// y += a*x
-    public void Axpy(Real a, SparkCL.ComputeBuffer<Real> x, SparkCL.ComputeBuffer<Real> y)
+    public void Axpy(Real a, ComputeBuffer<Real> x, ComputeBuffer<Real> y)
     {
         _axpy.GlobalWork = new NDRange((nuint)y.Length).PadTo(Core.Prefered1D);
         _axpy.SetArg(0, a);

@@ -1,7 +1,11 @@
-#define real double
-#define real4 float4
-
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#if defined(USE_DOUBLE)
+    #define real double
+    #define real4 double4
+    #pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#else
+    #define real float
+    #define real4 float4
+#endif
 
 kernel void dot_kernel9999
 (

@@ -1,4 +1,8 @@
+#if USE_DOUBLE
 using Real = double;
+#else
+using Real = float;
+#endif
 
 using SparkCL;
 using OCLHelper;
@@ -33,6 +37,11 @@ public ref struct DiagMatrixRef : IMatrixContainer
 
 public class DiagMatrix : IHalves
 {
+#if USE_DOUBLE
+    readonly string DefineUseDouble = "#define USE_DOUBLE";
+#else
+    readonly string DefineUseDouble = string.Empty;
+#endif
     // Left diagonal
     public ComputeBuffer<Real> Ld3;
     public ComputeBuffer<Real> Ld2;
@@ -81,8 +90,7 @@ public class DiagMatrix : IHalves
     {
         if (kernMul == null)
         {
-            
-            var support = new ComputeProgram("Matrices/DiagMatrix.cl");
+            var support = ComputeProgram.FromFilename("Matrices/DiagMatrix.cl", DefineUseDouble);
             var localWork = new NDRange(Core.Prefered1D);
 
             kernMul = support.GetKernel(
@@ -115,11 +123,11 @@ public class DiagMatrix : IHalves
         kernMul.Execute();
     }
     
-    public void LMul(ComputeBuffer<double> vec, ComputeBuffer<double> res)
+    public void LMul(ComputeBuffer<Real> vec, ComputeBuffer<Real> res)
     {
         if (kernLMul == null)
         {
-            var support = new ComputeProgram("Matrices/DiagMatrix.cl");
+            var support = ComputeProgram.FromFilename("Matrices/DiagMatrix.cl", DefineUseDouble);
             var localWork = new NDRange(Core.Prefered1D);
 
             kernLMul = support.GetKernel(
@@ -151,11 +159,11 @@ public class DiagMatrix : IHalves
         kernLMul.Execute();
     }
 
-    public void UMul(ComputeBuffer<double> vec, ComputeBuffer<double> res)
+    public void UMul(ComputeBuffer<Real> vec, ComputeBuffer<Real> res)
     {
         if (kernUMul == null)
         {
-            var support = new ComputeProgram("Matrices/DiagMatrix.cl");
+            var support = ComputeProgram.FromFilename("Matrices/DiagMatrix.cl", DefineUseDouble);
             var localWork = new NDRange(Core.Prefered1D);
 
             kernUMul = support.GetKernel(
@@ -187,11 +195,11 @@ public class DiagMatrix : IHalves
         kernUMul.Execute();
     }
 
-    public void InvLMul(ComputeBuffer<double> inOut)
+    public void InvLMul(ComputeBuffer<Real> inOut)
     {
         if (kernInvLMul == null)
         {
-            var support = new ComputeProgram("Matrices/DiagMatrix.cl");
+            var support = ComputeProgram.FromFilename("Matrices/DiagMatrix.cl", DefineUseDouble);
             var globalWork = new NDRange(4);
             var localWork = new NDRange(4);
 
@@ -222,11 +230,11 @@ public class DiagMatrix : IHalves
         kernInvLMul.Execute();
     }
 
-    public void InvUMul(ComputeBuffer<double> inOut)
+    public void InvUMul(ComputeBuffer<Real> inOut)
     {
         if (kernInvUMul == null)
         {
-            var support = new ComputeProgram("Matrices/DiagMatrix.cl");
+            var support = ComputeProgram.FromFilename("Matrices/DiagMatrix.cl", DefineUseDouble);
             var globalWork = new NDRange(4);
             var localWork = new NDRange(4);
 

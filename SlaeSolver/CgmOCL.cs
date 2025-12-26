@@ -1,4 +1,8 @@
+#if USE_DOUBLE
 using Real = double;
+#else
+using Real = float;
+#endif
 
 using System.Diagnostics;
 
@@ -28,13 +32,13 @@ public class CgmOCL : IDisposable, ISlaeSolver
     ) {
         _maxIter = maxIter;
         // TODO: уменьшение eps чтобы невязка ответа была сравнима с BicgStab
-        _eps = eps / 1e+7;
+        _eps = (Real)(eps / 1e+7);
 
         dotpart = new ComputeBuffer<Real>(32*2, BufferFlags.OnDevice);
         dotres  = new ComputeBuffer<Real>(1, BufferFlags.OnDevice);
     }
 
-    public static ISlaeSolver Construct(int maxIter, double eps)
+    public static ISlaeSolver Construct(int maxIter, Real eps)
         => new CgmOCL(maxIter, eps);
 
     // Выделить память для временных массивов
@@ -66,7 +70,19 @@ public class CgmOCL : IDisposable, ISlaeSolver
         var localWork = new NDRange(Core.Prefered1D);
 
         // BiCGSTAB
-        solvers ??= new ComputeProgram("SlaeSolver/Solvers.cl");
+        if (solvers == null)
+        {
+#if USE_DOUBLE
+            solvers = ComputeProgram.FromFilename("SlaeSolver/Solvers.cl", "#define USE_DOUBLE");
+#else
+            solvers = ComputeProgram.FromFilename("SlaeSolver/Solvers.cl");
+#endif
+            Core.OnDeinit += () =>
+            {
+                solvers.Dispose();
+                solvers = null;
+            };
+        }
 
         var kernRsqrt = solvers.GetKernel(
             "BLAS_rsqrt",

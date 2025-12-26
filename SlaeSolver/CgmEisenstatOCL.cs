@@ -1,4 +1,8 @@
+#if USE_DOUBLE
 using Real = double;
+#else
+using Real = float;
+#endif
 
 using System.Diagnostics;
 
@@ -31,13 +35,13 @@ public class CgmEisenstatOCL : IDisposable, ISlaeSolver
     ) {
         _maxIter = maxIter;
         // TODO: уменьшение eps чтобы невязка ответа была сравнима с BicgStab
-        _eps = eps / 1e+7;
+        _eps = (Real)(eps / 1e+7);
 
         dotpart = new ComputeBuffer<Real>(32*2, BufferFlags.OnDevice);
         dotres  = new ComputeBuffer<Real>(1, BufferFlags.OnDevice);
     }
 
-    public static ISlaeSolver Construct(int maxIter, double eps)
+    public static ISlaeSolver Construct(int maxIter, Real eps)
         => new CgmEisenstatOCL(maxIter, eps);
 
     // Выделить память для временных массивов
@@ -80,7 +84,20 @@ public class CgmEisenstatOCL : IDisposable, ISlaeSolver
         // BiCGSTAB
         if (solvers == null)
         {
-            solvers = new("SlaeSolver/Solvers.cl");
+#if USE_DOUBLE
+            solvers = ComputeProgram.FromFilename("SlaeSolver/Solvers.cl", "#define USE_DOUBLE");
+#else
+            solvers = ComputeProgram.FromFilename("SlaeSolver/Solvers.cl");
+#endif
+            var bins = solvers.GetBinaries();
+            Console.WriteLine($"Dumping binaries, count = {bins.Length}");
+            
+            for (int i = 0; i < bins.Length; i++)
+            {
+                using var file = new FileStream($"Solvers_{i+1}.bin", FileMode.Create);
+                file.Write(bins[i]);
+            }
+            
             Core.OnDeinit += () =>
             {
                 solvers.Dispose();

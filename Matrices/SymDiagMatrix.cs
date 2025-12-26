@@ -1,4 +1,8 @@
+#if USE_DOUBLE
 using Real = double;
+#else
+using Real = float;
+#endif
 
 using SparkCL;
 using OCLHelper;
@@ -22,6 +26,11 @@ public ref struct SymDiagMatrixRef : IMatrixContainer
 
 public class SymDiagMatrix : IMatrix
 {
+#if USE_DOUBLE
+    readonly string DefineUseDouble = "#define USE_DOUBLE";
+#else
+    readonly string DefineUseDouble = string.Empty;
+#endif
     // diagonal
     public ComputeBuffer<Real> d3;
     public ComputeBuffer<Real> d2;
@@ -57,7 +66,7 @@ public class SymDiagMatrix : IMatrix
     {
         if (kernMul == null)
         {
-            var support = new ComputeProgram("Matrices/SymDiagMatrix.cl");
+            var support = ComputeProgram.FromFilename("Matrices/SymDiagMatrix.cl", DefineUseDouble);
             var localWork = new NDRange(Core.Prefered1D);
 
             kernMul = support.GetKernel(

@@ -1,7 +1,9 @@
-#define real double
-#define real4 float4
-
-#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#if defined(USE_DOUBLE)
+    #define real double
+    #pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#else
+    #define real float
+#endif
 
 kernel void MsrMul(
     global const real *mat,
@@ -81,6 +83,29 @@ kernel void UMul(
         }
         res[row] = dot;
     }
+}
+
+// global size: n
+// local size: any
+kernel void InvLMulN2(
+    global const real *mat,
+    global const real *di,
+    global const int *aptr,
+    global const int *jptr,
+    
+    const int n,
+
+    global int *is_ready,
+    global real *res
+) {
+    int row = get_global_id(0);
+    
+    if (row < n) {
+        is_ready[row] = 0;
+    }
+
+    
+
 }
 
 // https://github.com/viennacl/viennacl-dev/blob/dc552a8d4bba2bb028a346dc611deea0c67e3eed/viennacl/linalg/cuda/sparse_matrix_operations_solve.hpp#L257

@@ -1,4 +1,8 @@
+#if USE_DOUBLE
 using Real = double;
+#else
+using Real = float;
+#endif
 
 using SparkCL;
 using OCLHelper;
@@ -18,6 +22,11 @@ public ref struct MsrMatrixRef : IMatrixContainer
 
 public class MsrMatrix : IHalves
 {
+#if USE_DOUBLE
+    readonly string DefineUseDouble = "#define USE_DOUBLE";
+#else
+    readonly string DefineUseDouble = string.Empty;
+#endif
     public ComputeBuffer<Real> Elems;
     public ComputeBuffer<Real> Di;
     public ComputeBuffer<int> Ia;
@@ -44,7 +53,7 @@ public class MsrMatrix : IHalves
     {
         if (kernMul == null)
         {
-            var support = new ComputeProgram("Matrices/MsrMatrix.cl");
+            var support = ComputeProgram.FromFilename("Matrices/MsrMatrix.cl", DefineUseDouble);
             var localWork = new NDRange(Core.Prefered1D);
 
             kernMul = support.GetKernel(
@@ -72,11 +81,11 @@ public class MsrMatrix : IHalves
     }
     
     
-    public void LMul(ComputeBuffer<double> vec, ComputeBuffer<double> res)
+    public void LMul(ComputeBuffer<Real> vec, ComputeBuffer<Real> res)
     {
         if (kernLMul == null)
         {
-            var support = new ComputeProgram("Matrices/MsrMatrix.cl");
+            var support = ComputeProgram.FromFilename("Matrices/MsrMatrix.cl", DefineUseDouble);
             var localWork = new NDRange(Core.Prefered1D);
 
             kernLMul = support.GetKernel(
@@ -103,11 +112,11 @@ public class MsrMatrix : IHalves
         kernLMul.Execute();
     }
 
-    public void UMul(ComputeBuffer<double> vec, ComputeBuffer<double> res)
+    public void UMul(ComputeBuffer<Real> vec, ComputeBuffer<Real> res)
     {
         if (kernUMul == null)
         {
-            var support = new ComputeProgram("Matrices/MsrMatrix.cl");
+            var support = ComputeProgram.FromFilename("Matrices/MsrMatrix.cl", DefineUseDouble);
             var localWork = new NDRange(Core.Prefered1D);
 
             kernUMul = support.GetKernel(
@@ -134,11 +143,11 @@ public class MsrMatrix : IHalves
         kernUMul.Execute();
     }
 
-    public void InvLMul(ComputeBuffer<double> inOut)
+    public void InvLMul(ComputeBuffer<Real> inOut)
     {
         if (kernInvLMul == null)
         {
-            var support = new ComputeProgram("Matrices/MsrMatrix.cl");
+            var support = ComputeProgram.FromFilename("Matrices/MsrMatrix.cl", DefineUseDouble);
             var globalWork = new NDRange(128);
             var localWork = new NDRange(128);
 
@@ -164,11 +173,11 @@ public class MsrMatrix : IHalves
         kernInvLMul.Execute();
     }
 
-    public void InvUMul(ComputeBuffer<double> inOut)
+    public void InvUMul(ComputeBuffer<Real> inOut)
     {
         if (kernInvUMul == null)
         {
-            var support = new ComputeProgram("Matrices/MsrMatrix.cl");
+            var support = ComputeProgram.FromFilename("Matrices/MsrMatrix.cl", DefineUseDouble);
             var globalWork = new NDRange(128);
             var localWork = new NDRange(128);
 

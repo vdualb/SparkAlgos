@@ -1,4 +1,8 @@
+#if USE_DOUBLE
 using Real = double;
+#else
+using Real = float;
+#endif
 
 using SparkCL;
 using OCLHelper;
@@ -39,7 +43,7 @@ public class BicgStabOCL : IDisposable, ISlaeSolver
         dotres  = new ComputeBuffer<Real>(1, BufferFlags.OnDevice);
     }
 
-    public static ISlaeSolver Construct(int maxIter, double eps)
+    public static ISlaeSolver Construct(int maxIter, Real eps)
         => new BicgStabOCL(maxIter, eps);
 
     // Выделить память для временных массивов
@@ -79,7 +83,11 @@ public class BicgStabOCL : IDisposable, ISlaeSolver
         // BiCGSTAB
         if (solvers == null)
         {
-            solvers = new("SlaeSolver/Solvers.cl");
+#if USE_DOUBLE
+            solvers = ComputeProgram.FromFilename("SlaeSolver/Solvers.cl", "#define USE_DOUBLE");
+#else
+            solvers = ComputeProgram.FromFilename("SlaeSolver/Solvers.cl");
+#endif
             Core.OnDeinit += () =>
             {
                 solvers.Dispose();
