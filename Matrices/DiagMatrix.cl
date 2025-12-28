@@ -197,32 +197,83 @@ kernel void InvLMul(
             // printf("2. %lf /= %lf, i = %d\n", res[i], di[i], i);
             res[i] /= di[i];
             real new_res = res[i];
-            // int t = i + 1;
-            // if (t < n) {
-            //     // printf("3. %lf -= %lf * %lf, i = %d, t = %d\n", res[t], locdiags[locid][i], res[i], i, t);
-            //     res[t] -= locdiags[locid][i] * new_res;
-            // } 
         }
         
         barrier(CLK_GLOBAL_MEM_FENCE); 
         
         real new_res = res[i];
 
+        int t = i + 1;
+        if (locid > 0) {
+            t = i + locid + gap;
+        }
+        
+        if (t < n) {
+            // printf("3. %lf -= %lf * %lf, i = %d, t = %d\n", res[t], locdiags[locid][i], res[i], i, t);
+            res[t] -= locdiags[locid][i] * new_res;
+        }
+        
+        barrier(CLK_GLOBAL_MEM_FENCE);
+    }
+}
+
+// local work size: 4
+// global work size: 4
+kernel void InvLMulDiverg(
+    global const real *ld3,
+    global const real *ld2,
+    global const real *ld1,
+    global const real *ld0,
+    
+    global const real *di,
+
+    const int n,
+    const int gap,
+    
+    global real *res)
+{
+    size_t locid = get_local_id(0);
+    // printf("1. This should get called 4 times");
+
+    for (int i = 0; i < n; i++)
+    {
+        if (locid == 0)
+        {
+            // printf("2. %lf /= %lf, i = %d\n", res[i], di[i], i);
+            res[i] /= di[i];
+            real new_res = res[i];
+        }
+        
+        barrier(CLK_GLOBAL_MEM_FENCE); 
+        
+        real new_res = res[i];
+        
         if (locid == 0) {
             int t = i + 1;
             if (t < n) {
                 // printf("3. %lf -= %lf * %lf, i = %d, t = %d\n", res[t], locdiags[locid][i], res[i], i, t);
-                res[t] -= locdiags[locid][i] * new_res;
-            }    
+                res[t] -= ld0[i] * new_res;
+            }
         }
-        
-        // thread 1 2 3
-        if (locid == 1 || locid == 2 || locid == 3)
-        {
-            int t = i + locid + gap;
+        if (locid == 1) {
+            int t = i + 1 + gap;
             if (t < n) {
-                // printf("4. %lf -= %lf * %lf, i = %d, t = %d\n", res[t], locdiags[locid][i], res[i], i, t);
-                res[t] -= locdiags[locid][i] * new_res;
+                // printf("3. %lf -= %lf * %lf, i = %d, t = %d\n", res[t], locdiags[locid][i], res[i], i, t);
+                res[t] -= ld1[i] * new_res;
+            }
+        }
+        if (locid == 2) {
+            int t = i + 2 + gap;
+            if (t < n) {
+                // printf("3. %lf -= %lf * %lf, i = %d, t = %d\n", res[t], locdiags[locid][i], res[i], i, t);
+                res[t] -= ld2[i] * new_res;
+            }
+        }
+        if (locid == 3) {
+            int t = i + 3 + gap;
+            if (t < n) {
+                // printf("3. %lf -= %lf * %lf, i = %d, t = %d\n", res[t], locdiags[locid][i], res[i], i, t);
+                res[t] -= ld3[i] * new_res;
             }
         }
         
@@ -282,6 +333,71 @@ kernel void InvLMul1th(
 
 // local work size: 4
 // global work size: 4
+kernel void InvUMulDiverg(
+    global const real *rd3,
+    global const real *rd2,
+    global const real *rd1,
+    global const real *rd0,
+    
+    global const real *di,
+
+    const int n,
+    const int gap,
+    
+    global real *res)
+{
+    size_t locid = get_local_id(0);
+    // printf("1. This should get called 4 times");
+    
+    for (int i = n-1; i >= 0; i--)
+    {
+        if (locid == 0)
+        {
+            // printf("2. %lf /= %lf, i = %d\n", res[i], di[i], i);
+            res[i] /= di[i];
+        }
+        
+        barrier(CLK_GLOBAL_MEM_FENCE);
+        
+        if (locid == 0) {
+            int t = i - 1;
+            if (t >= 0) {
+                // printf("3. %lf -= %lf * %lf, i = %d, t = %d\n", res[t], locdiags[locid][t], res[i], i, t);
+                res[t] -= rd0[t] * res[i];
+            }
+        }
+        
+        if (locid == 1)
+        {
+            int t = i - locid - gap;
+            if (t >= 0) {
+                // printf("4. %lf -= %lf * %lf, i = %d, t = %d\n", res[t], locdiags[locid][t], res[i], i, t);
+                res[t] -= rd1[t] * res[i];
+            }
+        }
+        if (locid == 2)
+        {
+            int t = i - locid - gap;
+            if (t >= 0) {
+                // printf("4. %lf -= %lf * %lf, i = %d, t = %d\n", res[t], locdiags[locid][t], res[i], i, t);
+                res[t] -= rd2[t] * res[i];
+            }
+        }
+        if (locid == 3)
+        {
+            int t = i - locid - gap;
+            if (t >= 0) {
+                // printf("4. %lf -= %lf * %lf, i = %d, t = %d\n", res[t], locdiags[locid][t], res[i], i, t);
+                res[t] -= rd3[t] * res[i];
+            }
+        }
+        
+        barrier(CLK_GLOBAL_MEM_FENCE);
+    }
+}
+
+// local work size: 4
+// global work size: 4
 kernel void InvUMul(
     global const real *rd3,
     global const real *rd2,
@@ -309,22 +425,14 @@ kernel void InvUMul(
         
         barrier(CLK_GLOBAL_MEM_FENCE);
         
-        if (locid == 0) {
-            int t = i - 1;
-            if (t >= 0) {
-                // printf("3. %lf -= %lf * %lf, i = %d, t = %d\n", res[t], locdiags[locid][t], res[i], i, t);
-                res[t] -= locdiags[locid][t] * res[i];
-            }
+        int t = i - 1;
+        if (locid > 0) {
+            t = i - locid - gap;
         }
         
-        // thread 1 2 3
-        if (locid == 1 || locid == 2 || locid == 3)
-        {
-            int t = i - locid - gap;
-            if (t >= 0) {
-                // printf("4. %lf -= %lf * %lf, i = %d, t = %d\n", res[t], locdiags[locid][t], res[i], i, t);
-                res[t] -= locdiags[locid][t] * res[i];
-            }
+        if (t >= 0) {
+            // printf("4. %lf -= %lf * %lf, i = %d, t = %d\n", res[t], locdiags[locid][t], res[i], i, t);
+            res[t] -= locdiags[locid][t] * res[i];
         }
         
         barrier(CLK_GLOBAL_MEM_FENCE);
